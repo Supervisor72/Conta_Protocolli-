@@ -48,6 +48,7 @@
   .name small{display:block;font-weight:400;color:var(--muted);font-size:12px;font-family:'DM Mono',monospace;margin-top:3px}
   .count{font-family:'DM Mono',monospace;font-size:30px;min-width:52px;text-align:center;color:var(--txt);line-height:1}
   .count small{display:block;font-size:11px;color:var(--gold);margin-top:5px;font-family:'DM Sans',sans-serif;font-weight:600;white-space:nowrap}
+  .x{background:transparent;border:1px solid var(--inline);color:var(--muted);border-radius:7px;padding:2px 7px;font-size:12px;margin-left:6px;cursor:pointer;vertical-align:2px}
   .rest{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;font-size:10px;color:var(--muted);font-weight:600}
   .rest input{width:22px;height:22px;accent-color:var(--gold);margin:0;cursor:pointer}
   .row.off{opacity:.45}
@@ -132,6 +133,7 @@
         <input type="text" id="newName" placeholder="Nome e cognome addetto">
         <button id="addBtn">Aggiungi</button>
       </div>
+      <button class="btn btn-ghost" id="restoreBtn" style="margin-top:12px">↺ Ripristina lista originale</button>
     </details>
   </div>
 
@@ -143,16 +145,19 @@
 <script>
 /* =====================================================
    ADDETTI PRECARICATI PER PUNTO VENDITA
-   Sostituisci i nomi qui sotto. Il direttore può anche
-   aggiungerli/toglierli dall'app (sezione "Gestisci addetti").
+   Da export venduto collaboratori 01-12/11/2026.
+   Aggiornamento mensile: sostituire solo questo elenco.
+   Le modifiche dei direttori (✕ e aggiunte) restano valide.
+   Il direttore può togliere (✕) cassiere/magazzino o aggiungere
+   nomi dall'app; "Ripristina lista originale" torna a questo elenco.
    ===================================================== */
 const ADDETTI = {
-  FANO:       ["ADDETTO 1","ADDETTO 2","ADDETTO 3","ADDETTO 4"],
-  MONSANO:    ["ADDETTO 1","ADDETTO 2","ADDETTO 3","ADDETTO 4"],
-  OSIMO:      ["ADDETTO 1","ADDETTO 2","ADDETTO 3","ADDETTO 4"],
-  MACERATA:   ["ADDETTO 1","ADDETTO 2","ADDETTO 3","ADDETTO 4"],
-  CIVITANOVA: ["ADDETTO 1","ADDETTO 2","ADDETTO 3","ADDETTO 4"],
-  PESARO:     ["ADDETTO 1","ADDETTO 2","ADDETTO 3","ADDETTO 4"]
+  FANO:       ["BETTI VALENTINA", "CANNELLA LORENZO", "CIUFFO MATTIA", "CIULLO LORIS", "DONNO CLAUDIA", "FOGLINO ALESSANDRA CRISTIANA", "GIACCHETTI MARINA", "LAMBIASE SIMONE", "MAGI LUCA", "MENCARELLI ANDREA", "MEOZZI ROBERTO", "NARDINI ANDREA", "POLA ILARIA", "TONELLI SARA", "VINCENTI MATTEO", "ZENOBI ANTONELLO"],
+  MONSANO:    ["ALBORINI GIACOMO", "BELEMMI DAVIDE", "CASTAGNA GIULIA", "CECCONI JESSICA", "CHIACCHIARI CAMILLO", "CICINELLI FABIO", "CORRADINI VALENTINA", "DONNINI FEDERICO", "MAGGIORI RICCARDO", "MAZZOLINI SAMUELE", "MOSCHINI FRANCESCO", "PASQUALINI ALESSANDRO", "RICCARDI ROSANNA", "RIZVANI AIDA", "SALANDRA MARCO", "SEBASTIANELLI BEATRICE", "URBANI DILETTA", "ZUCCARO AZZURRA"],
+  OSIMO:      ["AGOSTINELLI ALICE", "BENEDETTI ALESSIO", "BINCI GIANLUCA", "BUGLIONI LORIS", "CAGNAZZO MATTIA", "DOMENELLA PAOLO", "DOMESI GIACOMO", "FATIGA SONIA", "FRONTALINI FABIANO", "GALVANO SILVIA", "GUAGLIARDITO GIUSEPPE", "LILLINI CRISTINA", "MOSCHINI FRANCESCO", "NICOLINI DANIELE", "PAPA SIGLINDE", "RAVARELLI ALICE", "ROSELLINI EMANUELE", "ROSSI ROBERTO", "TIBERI CRISTIAN", "ZOCCHI BARBARA"],
+  MACERATA:   ["ANDRENACCI EMANUELE", "ANGELETTI FRANCESCA", "ASCANI MASSIMILIANO", "CAPOMAGI MARGHERITA", "CARBONARI ANDREA", "COLASANTE ROSANNA", "FORMENTINI ERIKA", "LUCHETTA LAURA", "MANZI YURI", "MARAVIGLIA MAURIZIO", "MESCHINI DANIELE", "PALMARUCCI DANILO", "PERRONE FABIO ETTORE VINCENZO", "PORCARO MARCO"],
+  CIVITANOVA: ["APPIGNANESI ANIMENTO ELISA", "BELLEGGIA DIEGO", "BRUNI ALESSANDRO", "CRUCIANI MARCO", "EJUPI FLUTRA", "FELACE MATTIA", "FERRACUTI MARCO", "LATINI STEFANO", "PACCAMICCIO ANDREA", "PALLOTTI FEDERICA", "RIPA RICCARDO", "SILVESTRINI MAICOL", "SIMONELLI ALESSIA", "TRAINI SONIA", "TRONO ENZO", "URBANI FRANCESCO", "ZAMPALONI ANDREA"],
+  PESARO:     ["CIARDO MARIA FILOMENA", "COCCOLI VALENTINA", "FAVALE TIZIANA", "FRANCHINI LUCA", "GERACI STEPHAN", "LEONARDI MATTIA", "MAGRINI ROBERTA", "MARINONI MONICA", "MAZZANTI NICOLA", "MIDOLO ANDREA", "PARRUCCI EMANUELE", "PAZZAGLIA PAOLO", "POLLANI PAOLO", "SARTINI SIMONE", "SCAVONE SIMONE", "SEBENICO ALEX", "TABONI RICCARDO", "TURTÙ FRANCESCO", "UGUCCIONI CHIARA", "ZEPPETELLA ANDREA"]
 };
 const EMAIL_TO = "d.pavoni@dml-italia.com";
 
@@ -179,13 +184,30 @@ let staff = [];   // nomi addetti del PDV
 let events = [];  // protocolli del mese: [{n:nome, d:'AAAA-MM-GG', t:timestamp}]
 let riposo = [];  // addetti a riposo oggi
 
-const staffKey  = () => 'prot_staff_' + pdv;
+const custKey   = () => 'prot_custom_' + pdv;   // modifiche del direttore: {removed:[], added:[]}
+let cust = {removed:[], added:[]};
+function buildStaff(){
+  const base = ADDETTI[pdv] || [];
+  staff = base.filter(n => !cust.removed.includes(n));
+  cust.added.forEach(n => { if(!staff.includes(n)) staff.push(n); });
+}
 const monthSKey = () => 'prot_month_' + pdv;
 const restKey   = () => 'prot_riposo_' + pdv;
 
 function loadPdv(){
   if(!pdv){ staff=[]; events=[]; riposo=[]; render(); return; }
-  staff = store.get(staffKey()) || [...(ADDETTI[pdv] || [])];
+  cust = store.get(custKey());
+  if(!cust){
+    cust = {removed:[], added:[]};
+    const old = store.get('prot_staff_v2_' + pdv);   // migrazione versione precedente
+    if(old){
+      const base = ADDETTI[pdv] || [];
+      cust.removed = base.filter(n => !old.includes(n));
+      cust.added   = old.filter(n => !base.includes(n));
+    }
+    saveStaff();
+  }
+  buildStaff();
 
   const m = store.get(monthSKey());
   if(m && m.month === monthKey){ events = m.events || []; }
@@ -202,7 +224,7 @@ function loadPdv(){
   render();
 }
 function saveMonth(){ if(pdv) store.set(monthSKey(), {month:monthKey, events}); }
-function saveStaff(){ if(pdv) store.set(staffKey(), staff); }
+function saveStaff(){ if(pdv) store.set(custKey(), cust); }
 function saveRest(){ if(pdv) store.set(restKey(), {date:todayKey, list:riposo}); }
 
 const todayEvents = () => events.filter(e => e.d === todayKey);
@@ -237,7 +259,7 @@ function render(){
       const sub = off ? 'DI RIPOSO' : (lt ? 'ultimo alle ' + lt : 'nessun protocollo oggi');
       return `<div class="row ${off?'off':''} ${!off && cD[n] && cD[n]===max ? 'top':''}" id="r${i}">
         <label class="rest"><input type="checkbox" data-r="${i}" ${off?'checked':''} aria-label="${esc(n)} di riposo">Riposo</label>
-        <div class="name">${esc(n)}<small>${sub}</small></div>
+        <div class="name">${esc(n)}<button class="x" data-x="${i}" aria-label="Togli ${esc(n)} dalla lista">✕</button><small>${sub}</small></div>
         <button class="minus" aria-label="Togli uno a ${esc(n)}" data-m="${i}">−</button>
         <div class="count">${cD[n] || 0}<small>mese ${cM[n] || 0}</small></div>
         <button class="plus" aria-label="Aggiungi uno a ${esc(n)}" data-p="${i}">+1</button>
@@ -257,7 +279,8 @@ function renderManage(){
 
 /* ---------- azioni ---------- */
 document.getElementById('list').addEventListener('click', e => {
-  const p = e.target.closest('[data-p]'), m = e.target.closest('[data-m]');
+  const p = e.target.closest('[data-p]'), m = e.target.closest('[data-m]'), x = e.target.closest('[data-x]');
+  if(x){ removeStaff(+x.dataset.x); return; }
   if(p){
     const i = +p.dataset.p, n = staff[i];
     if(riposo.includes(n)) return;
@@ -293,16 +316,29 @@ document.getElementById('addBtn').onclick = () => {
   const n = inp.value.trim().toUpperCase();
   if(!n) return;
   if(staff.includes(n)){ toast('Addetto già presente'); return; }
-  staff.push(n); saveStaff(); inp.value=''; render(); toast('Aggiunto ' + n);
+  cust.removed = cust.removed.filter(r => r !== n);
+  if(!(ADDETTI[pdv] || []).includes(n)) cust.added.push(n);
+  buildStaff(); saveStaff(); inp.value=''; render(); toast('Aggiunto ' + n);
 };
 document.getElementById('newName').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('addBtn').click(); });
 
 document.getElementById('mList').addEventListener('click', e => {
   const b = e.target.closest('[data-del]'); if(!b) return;
-  const n = staff[+b.dataset.del];
-  if(!confirm('Rimuovere ' + n + ' dalla lista?')) return;
-  staff.splice(+b.dataset.del,1); saveStaff(); render();
+  removeStaff(+b.dataset.del);
 });
+function removeStaff(i){
+  const n = staff[i];
+  if(!confirm('Togliere ' + n + ' dalla lista? (es. cassiera o magazzino)\nSi può riaggiungere da "Gestisci addetti".')) return;
+  cust.added = cust.added.filter(a => a !== n);
+  if((ADDETTI[pdv] || []).includes(n) && !cust.removed.includes(n)) cust.removed.push(n);
+  buildStaff(); riposo = riposo.filter(r => r !== n);
+  saveStaff(); saveRest(); render(); toast(n + ' tolto dalla lista');
+}
+document.getElementById('restoreBtn').onclick = () => {
+  if(!pdv){ toast('Seleziona il punto vendita'); return; }
+  if(!confirm('Ripristinare la lista originale degli addetti di ' + pdv + '?')) return;
+  cust = {removed:[], added:[]}; buildStaff(); saveStaff(); render(); toast('Lista originale ripristinata');
+};
 
 document.getElementById('resetBtn').onclick = () => {
   if(!pdv) return;
@@ -314,19 +350,37 @@ $pdv.onchange = () => { pdv = $pdv.value; store.set('prot_pdv', pdv); loadPdv();
 
 /* ---------- report ---------- */
 function buildReport(){
-  const cD = countsOf(todayEvents()), cM = countsOf(events);
-  const dataIT = now.toLocaleDateString('it-IT');
-  const att = staff.filter(n => !riposo.includes(n)).sort((a,b) => (cD[b]-cD[a]) || (cM[b]-cM[a]));
+  const tEv = todayEvents();
+  const cD = countsOf(tEv), cM = countsOf(events);
+  const dataIT = now.toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
+  const ora = now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+  const att = staff.filter(n => !riposo.includes(n)).sort((a,b) => (cD[b]-cD[a]) || (cM[b]-cM[a]) || a.localeCompare(b));
   const off = staff.filter(n => riposo.includes(n));
-  let t = `PROTOCOLLI PDV - ${pdv} - ${dataIT}\n\n`;
-  t += `ADDETTO: OGGI / MESE\n`;
-  att.forEach((n,i) => { t += `${i+1}. ${n}: ${cD[n]||0} / ${cM[n]||0}\n`; });
+  const top = Math.max(1, ...att.map(n => cD[n] || 0));
+  const SEP = '━━━━━━━━━━━━━━━━';
+  const medal = ['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
+  const bar = v => { const k = Math.round((v / top) * 10); return '▰'.repeat(k) + '▱'.repeat(10 - k); };
+
+  // posizioni a pari merito (stesso numero oggi = stessa posizione)
+  let pos = 0, prev = null;
+  const rows = att.map((n,i) => {
+    const v = cD[n] || 0;
+    if(v !== prev){ pos = i; prev = v; }
+    const icon = v === 0 ? '▫️' : (medal[pos] || `${pos+1}.`);
+    return `${icon} ${n}  ➜  ${v}\n      ${bar(v)}   mese ${cM[n] || 0}`;
+  });
+
+  let t = `📋 PROTOCOLLI PDV\n🏬 ${pdv}\n📅 ${dataIT} · ore ${ora}\n${SEP}\n`;
+  t += `🔥 OGGI: ${tEv.length} PROTOCOLLI\n${SEP}\n\n`;
+  t += `🏆 CLASSIFICA DI OGGI\n\n`;
+  t += rows.length ? rows.join('\n\n') : 'Nessun addetto in servizio';
   if(off.length){
-    t += `\nDI RIPOSO:\n`;
-    off.forEach(n => { t += `- ${n} (mese ${cM[n]||0})\n`; });
+    t += `\n\n${SEP}\n😴 DI RIPOSO\n`;
+    off.forEach(n => { t += `• ${n}   (mese ${cM[n] || 0})\n`; });
+    t = t.trimEnd();
   }
-  t += `\n==========\nTOTALE OGGI: ${todayEvents().length}\nTOTALE ${monthIT.toUpperCase()}: ${events.length}\n==========`;
-  return {t, subject:`Protocolli PDV - ${pdv} - ${dataIT}`};
+  t += `\n\n${SEP}\n📊 Totale ${monthIT}: ${events.length} protocolli`;
+  return {t, subject:`📋 Protocolli ${pdv} – ${now.toLocaleDateString('it-IT')} – oggi ${tEv.length}`};
 }
 document.getElementById('sendBtn').onclick = () => {
   if(!pdv){ alert('Seleziona il PUNTO VENDITA prima di inviare.'); return; }
