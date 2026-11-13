@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0f14">
+<title>Protocolli PDV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@500&family=DM+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0d0f14; --card:#161a22; --line:#232936; --input:#0d0f14; --inline:#2a3140;
+    --gold:#e8b84b; --gold2:#c9971f; --gold3:#b8860b;
+    --txt:#f2f2f2; --muted:#8a93a6; --red:#e5484d;
+    --grad:linear-gradient(135deg,#e8b84b 0%,#c9971f 55%,#b8860b 100%);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--txt);font-family:'DM Sans',system-ui,-apple-system,sans-serif}
+  body{padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+  .wrap{max-width:560px;margin:0 auto;padding:16px 14px 120px}
+
+  .home{display:block;width:100%;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--card);
+        color:var(--gold);font-weight:800;font-size:16px;text-align:center;text-decoration:none;margin-bottom:16px}
+
+  header{text-align:center;margin:6px 0 18px}
+  header h1{margin:0;font-size:28px;font-weight:800;letter-spacing:.5px}
+  header h1 span{color:var(--gold)}
+  header .date{color:var(--muted);font-family:'DM Mono',monospace;font-size:14px;margin-top:4px}
+
+  .card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;overflow:hidden}
+  .card::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--grad)}
+
+  label.lbl{display:block;font-weight:600;color:var(--muted);font-size:13px;margin-bottom:6px}
+  select,input[type=text]{width:100%;padding:13px;border-radius:10px;border:1px solid var(--inline);background:var(--input);
+        color:var(--txt);font-size:17px;font-family:inherit;outline:none}
+  select:focus,input:focus{border-color:var(--gold)}
+
+  .total{display:flex;align-items:center;justify-content:space-between}
+  .total .t-lbl{font-size:15px;color:var(--muted);font-weight:600}
+  .total .t-num{font-family:'DM Mono',monospace;font-size:46px;color:var(--gold);line-height:1}
+
+  .list{display:flex;flex-direction:column;gap:10px}
+  .row{display:grid;grid-template-columns:auto 1fr auto auto auto;align-items:center;gap:10px;background:var(--card);
+       border:1px solid var(--line);border-radius:14px;padding:10px 10px 10px 14px}
+  .row.top{border-color:var(--gold3)}
+  .name{font-weight:800;font-size:17px;line-height:1.15;word-break:break-word}
+  .name small{display:block;font-weight:400;color:var(--muted);font-size:12px;font-family:'DM Mono',monospace;margin-top:3px}
+  .count{font-family:'DM Mono',monospace;font-size:30px;min-width:52px;text-align:center;color:var(--txt);line-height:1}
+  .count small{display:block;font-size:11px;color:var(--gold);margin-top:5px;font-family:'DM Sans',sans-serif;font-weight:600;white-space:nowrap}
+  .rest{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;font-size:10px;color:var(--muted);font-weight:600}
+  .rest input{width:22px;height:22px;accent-color:var(--gold);margin:0;cursor:pointer}
+  .row.off{opacity:.45}
+  .row.off .plus,.row.off .minus{pointer-events:none;filter:grayscale(1)}
+  .row.off .name small{color:var(--gold)}
+  .grid3{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  .btn-tg{background:#229ED9;color:#fff}
+  .minus{width:40px;height:52px;border-radius:10px;border:1px solid var(--inline);background:transparent;color:var(--muted);
+         font-size:22px;font-weight:800;cursor:pointer}
+  .plus{width:76px;height:60px;border-radius:12px;border:none;background:var(--grad);color:#14110a;
+        font-size:24px;font-weight:800;cursor:pointer;font-family:'DM Sans',sans-serif}
+  .plus:active{transform:scale(.94)}
+  .row.flash{animation:flash .45s ease}
+  @keyframes flash{0%{background:#3a2f12}100%{background:var(--card)}}
+
+  .empty{color:var(--muted);text-align:center;padding:18px 6px;line-height:1.5}
+
+  .btn{display:block;width:100%;padding:15px;border-radius:12px;border:none;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit}
+  .btn-gold{background:var(--grad);color:#14110a}
+  .btn-ghost{background:transparent;color:var(--txt);border:1px solid var(--inline)}
+  .btn-red{background:transparent;color:var(--red);border:1px solid #4a2326}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+
+  details.manage summary{cursor:pointer;color:var(--gold);font-weight:800;list-style:none;font-size:16px}
+  details.manage summary::-webkit-details-marker{display:none}
+  .m-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)}
+  .m-row button{background:transparent;border:1px solid #4a2326;color:var(--red);border-radius:8px;padding:6px 10px;font-weight:600;cursor:pointer}
+  .add-line{display:flex;gap:8px;margin-top:12px}
+  .add-line button{flex:0 0 auto;padding:0 18px;border-radius:10px;border:none;background:var(--grad);color:#14110a;font-weight:800;font-size:15px;cursor:pointer}
+
+  .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0));transform:translateX(-50%);background:#1d222c;
+         border:1px solid var(--gold3);color:var(--txt);padding:12px 18px;border-radius:12px;font-weight:600;opacity:0;
+         transition:opacity .2s;pointer-events:none;max-width:90%;text-align:center;z-index:9}
+  .toast.on{opacity:1}
+  button:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){.row.flash{animation:none}.plus:active{transform:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <a class="home" href="#" onclick="history.back();return false;">← Torna alla Home Hub</a>
+
+  <header>
+    <h1>PROTOCOLLI <span>PDV</span></h1>
+    <div class="date" id="today"></div>
+  </header>
+
+  <div class="card">
+    <label class="lbl" for="pdv">Punto vendita</label>
+    <select id="pdv">
+      <option value="">— Seleziona punto vendita —</option>
+      <option>FANO</option><option>MONSANO</option><option>OSIMO</option>
+      <option>MACERATA</option><option>CIVITANOVA</option><option>PESARO</option>
+    </select>
+  </div>
+
+  <div class="grid3" style="margin:0 0 14px">
+    <div class="card total" style="margin:0;flex-direction:column;align-items:flex-start;gap:8px">
+      <div class="t-lbl">Totale oggi</div>
+      <div class="t-num" id="total">0</div>
+    </div>
+    <div class="card total" style="margin:0;flex-direction:column;align-items:flex-start;gap:8px">
+      <div class="t-lbl" id="monthLbl">Totale mese</div>
+      <div class="t-num" id="totalMonth">0</div>
+    </div>
+  </div>
+
+  <div class="list" id="list"></div>
+
+  <button class="btn btn-ghost" id="undoBtn" style="margin-top:12px">↩︎ Annulla ultimo</button>
+  <div class="grid2">
+    <button class="btn btn-gold" id="sendBtn">📧 Invia mail</button>
+    <button class="btn btn-tg" id="tgBtn">✈️ Telegram</button>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <details class="manage" id="manage">
+      <summary>⚙️ Gestisci addetti</summary>
+      <div id="mList" style="margin-top:10px"></div>
+      <div class="add-line">
+        <input type="text" id="newName" placeholder="Nome e cognome addetto">
+        <button id="addBtn">Aggiungi</button>
+      </div>
+    </details>
+  </div>
+
+  <button class="btn btn-red" id="resetBtn">🗑️ Azzera conteggi di oggi</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================
+   ADDETTI PRECARICATI PER PUNTO VENDITA
+   Sostituisci i nomi qui sotto. Il direttore può anche
+   aggiungerli/toglierli dall'app (sezione "Gestisci addetti").
+   ===================================================== */
+const ADDETTI = {
+  FANO:       ["ADDETTO 1","ADDETTO 2","ADDETTO 3","ADDETTO 4"],
+  MONSANO:    ["ADDETTO 1","ADDETTO 2","ADDETTO 3","ADDETTO 4"],
+  OSIMO:      ["ADDETTO 1","ADDETTO 2","ADDETTO 3","ADDETTO 4"],
+  MACERATA:   ["ADDETTO 1","ADDETTO 2","ADDETTO 3","ADDETTO 4"],
+  CIVITANOVA: ["ADDETTO 1","ADDETTO 2","ADDETTO 3","ADDETTO 4"],
+  PESARO:     ["ADDETTO 1","ADDETTO 2","ADDETTO 3","ADDETTO 4"]
+};
+const EMAIL_TO = "d.pavoni@dml-italia.com";
+
+/* ---------- storage sicuro ---------- */
+const mem = {};
+const store = {
+  get(k){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; }catch(e){ return mem[k] ?? null; } },
+  set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){ mem[k] = v; } },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){ delete mem[k]; } }
+};
+
+const now = new Date();
+const pad = x => String(x).padStart(2,'0');
+const todayKey = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+const monthKey = todayKey.slice(0,7);
+const todayIT  = now.toLocaleDateString('it-IT',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
+const monthIT  = now.toLocaleDateString('it-IT',{month:'long'});
+document.getElementById('today').textContent = todayIT;
+document.getElementById('monthLbl').textContent = 'Totale ' + monthIT;
+
+const $pdv = document.getElementById('pdv');
+let pdv = store.get('prot_pdv') || '';
+let staff = [];   // nomi addetti del PDV
+let events = [];  // protocolli del mese: [{n:nome, d:'AAAA-MM-GG', t:timestamp}]
+let riposo = [];  // addetti a riposo oggi
+
+const staffKey  = () => 'prot_staff_' + pdv;
+const monthSKey = () => 'prot_month_' + pdv;
+const restKey   = () => 'prot_riposo_' + pdv;
+
+function loadPdv(){
+  if(!pdv){ staff=[]; events=[]; riposo=[]; render(); return; }
+  staff = store.get(staffKey()) || [...(ADDETTI[pdv] || [])];
+
+  const m = store.get(monthSKey());
+  if(m && m.month === monthKey){ events = m.events || []; }
+  else {
+    if(m && m.events && m.events.length) toast('Nuovo mese: totali ripartiti da zero');
+    events = [];
+    // recupero dati della versione precedente (solo oggi)
+    const old = store.get('prot_day_' + pdv);
+    if(old && old.date === todayKey && old.events) events = old.events.map(e => ({n:e.n, d:todayKey, t:e.t}));
+    saveMonth();
+  }
+  const r = store.get(restKey());
+  riposo = (r && r.date === todayKey) ? (r.list || []) : [];
+  render();
+}
+function saveMonth(){ if(pdv) store.set(monthSKey(), {month:monthKey, events}); }
+function saveStaff(){ if(pdv) store.set(staffKey(), staff); }
+function saveRest(){ if(pdv) store.set(restKey(), {date:todayKey, list:riposo}); }
+
+const todayEvents = () => events.filter(e => e.d === todayKey);
+function countsOf(list){
+  const c = {}; staff.forEach(n => c[n] = 0);
+  list.forEach(e => { c[e.n] = (c[e.n] || 0) + 1; });
+  return c;
+}
+function lastTime(n){
+  for(let i=events.length-1;i>=0;i--) if(events[i].n===n && events[i].d===todayKey)
+    return new Date(events[i].t).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+  return null;
+}
+const esc = s => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+function render(){
+  const list = document.getElementById('list');
+  const tEv = todayEvents();
+  const cD = countsOf(tEv), cM = countsOf(events);
+  const max = Math.max(0, ...Object.values(cD));
+  document.getElementById('total').textContent = tEv.length;
+  document.getElementById('totalMonth').textContent = events.length;
+
+  if(!pdv){
+    list.innerHTML = '<div class="card empty">Seleziona il punto vendita per vedere gli addetti.</div>';
+  } else if(!staff.length){
+    list.innerHTML = '<div class="card empty">Nessun addetto. Aggiungili da “Gestisci addetti”.</div>';
+  } else {
+    list.innerHTML = staff.map((n,i) => {
+      const off = riposo.includes(n);
+      const lt = lastTime(n);
+      const sub = off ? 'DI RIPOSO' : (lt ? 'ultimo alle ' + lt : 'nessun protocollo oggi');
+      return `<div class="row ${off?'off':''} ${!off && cD[n] && cD[n]===max ? 'top':''}" id="r${i}">
+        <label class="rest"><input type="checkbox" data-r="${i}" ${off?'checked':''} aria-label="${esc(n)} di riposo">Riposo</label>
+        <div class="name">${esc(n)}<small>${sub}</small></div>
+        <button class="minus" aria-label="Togli uno a ${esc(n)}" data-m="${i}">−</button>
+        <div class="count">${cD[n] || 0}<small>mese ${cM[n] || 0}</small></div>
+        <button class="plus" aria-label="Aggiungi uno a ${esc(n)}" data-p="${i}">+1</button>
+      </div>`;
+    }).join('');
+  }
+  renderManage();
+}
+
+function renderManage(){
+  const m = document.getElementById('mList');
+  if(!pdv){ m.innerHTML = '<div class="empty">Seleziona prima il punto vendita.</div>'; return; }
+  m.innerHTML = staff.map((n,i) =>
+    `<div class="m-row"><span>${esc(n)}</span><button data-del="${i}">Rimuovi</button></div>`
+  ).join('') || '<div class="empty">Lista vuota.</div>';
+}
+
+/* ---------- azioni ---------- */
+document.getElementById('list').addEventListener('click', e => {
+  const p = e.target.closest('[data-p]'), m = e.target.closest('[data-m]');
+  if(p){
+    const i = +p.dataset.p, n = staff[i];
+    if(riposo.includes(n)) return;
+    events.push({n, d:todayKey, t:Date.now()}); saveMonth(); render();
+    const row = document.getElementById('r'+i); if(row) row.classList.add('flash');
+    if(navigator.vibrate) navigator.vibrate(30);
+  }
+  if(m){
+    const n = staff[+m.dataset.m];
+    for(let k=events.length-1;k>=0;k--) if(events[k].n===n && events[k].d===todayKey){
+      events.splice(k,1); saveMonth(); render(); toast('Tolto 1 a ' + n); return;
+    }
+    toast('Nessun protocollo di oggi da togliere');
+  }
+});
+document.getElementById('list').addEventListener('change', e => {
+  const r = e.target.closest('[data-r]'); if(!r) return;
+  const n = staff[+r.dataset.r];
+  riposo = r.checked ? [...new Set([...riposo, n])] : riposo.filter(x => x !== n);
+  saveRest(); render(); toast(r.checked ? n + ' di riposo' : n + ' in servizio');
+});
+
+document.getElementById('undoBtn').onclick = () => {
+  for(let k=events.length-1;k>=0;k--) if(events[k].d===todayKey){
+    const e = events.splice(k,1)[0]; saveMonth(); render(); toast('Annullato: ' + e.n); return;
+  }
+  toast('Niente da annullare');
+};
+
+document.getElementById('addBtn').onclick = () => {
+  if(!pdv){ toast('Seleziona il punto vendita'); return; }
+  const inp = document.getElementById('newName');
+  const n = inp.value.trim().toUpperCase();
+  if(!n) return;
+  if(staff.includes(n)){ toast('Addetto già presente'); return; }
+  staff.push(n); saveStaff(); inp.value=''; render(); toast('Aggiunto ' + n);
+};
+document.getElementById('newName').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('addBtn').click(); });
+
+document.getElementById('mList').addEventListener('click', e => {
+  const b = e.target.closest('[data-del]'); if(!b) return;
+  const n = staff[+b.dataset.del];
+  if(!confirm('Rimuovere ' + n + ' dalla lista?')) return;
+  staff.splice(+b.dataset.del,1); saveStaff(); render();
+});
+
+document.getElementById('resetBtn').onclick = () => {
+  if(!pdv) return;
+  if(!confirm('Azzerare i protocolli di OGGI per ' + pdv + '? (il totale del mese perde quelli di oggi)')) return;
+  events = events.filter(e => e.d !== todayKey); saveMonth(); render(); toast('Conteggi di oggi azzerati');
+};
+
+$pdv.onchange = () => { pdv = $pdv.value; store.set('prot_pdv', pdv); loadPdv(); };
+
+/* ---------- report ---------- */
+function buildReport(){
+  const cD = countsOf(todayEvents()), cM = countsOf(events);
+  const dataIT = now.toLocaleDateString('it-IT');
+  const att = staff.filter(n => !riposo.includes(n)).sort((a,b) => (cD[b]-cD[a]) || (cM[b]-cM[a]));
+  const off = staff.filter(n => riposo.includes(n));
+  let t = `PROTOCOLLI PDV - ${pdv} - ${dataIT}\n\n`;
+  t += `ADDETTO: OGGI / MESE\n`;
+  att.forEach((n,i) => { t += `${i+1}. ${n}: ${cD[n]||0} / ${cM[n]||0}\n`; });
+  if(off.length){
+    t += `\nDI RIPOSO:\n`;
+    off.forEach(n => { t += `- ${n} (mese ${cM[n]||0})\n`; });
+  }
+  t += `\n==========\nTOTALE OGGI: ${todayEvents().length}\nTOTALE ${monthIT.toUpperCase()}: ${events.length}\n==========`;
+  return {t, subject:`Protocolli PDV - ${pdv} - ${dataIT}`};
+}
+document.getElementById('sendBtn').onclick = () => {
+  if(!pdv){ alert('Seleziona il PUNTO VENDITA prima di inviare.'); return; }
+  const r = buildReport();
+  window.location.href = `mailto:${EMAIL_TO}?subject=${encodeURIComponent(r.subject)}&body=${encodeURIComponent(r.t)}`;
+};
+document.getElementById('tgBtn').onclick = () => {
+  if(!pdv){ alert('Seleziona il PUNTO VENDITA prima di inviare.'); return; }
+  const r = buildReport();
+  window.location.href = `https://t.me/share/url?url=${encodeURIComponent(r.subject)}&text=${encodeURIComponent('\n' + r.t)}`;
+};
+
+/* ---------- toast ---------- */
+let tt;
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('on');
+  clearTimeout(tt); tt = setTimeout(() => el.classList.remove('on'), 2200);
+}
+
+/* ---------- avvio ---------- */
+$pdv.value = pdv;
+loadPdv();
+</script>
+</body>
+</html>
