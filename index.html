@@ -49,9 +49,12 @@
   .count{font-family:'DM Mono',monospace;font-size:30px;min-width:52px;text-align:center;color:var(--txt);line-height:1}
   .count small{display:block;font-size:11px;color:var(--gold);margin-top:5px;font-family:'DM Sans',sans-serif;font-weight:600;white-space:nowrap}
   .x{background:transparent;border:1px solid var(--inline);color:var(--muted);border-radius:7px;padding:2px 7px;font-size:12px;margin-left:6px;cursor:pointer;vertical-align:2px}
-  .rest{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;font-size:10px;color:var(--muted);font-weight:600}
-  .rest input{width:22px;height:22px;accent-color:var(--gold);margin:0;cursor:pointer}
-  .row.off{opacity:.45}
+  .rest{display:flex;flex-direction:column;gap:5px}
+  .st{width:58px;padding:6px 0;border-radius:8px;border:1px solid var(--inline);background:transparent;color:var(--muted);
+      font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:.3px}
+  .st.on{background:var(--grad);color:#14110a;border-color:transparent}
+  .row.off .rest{opacity:1}
+  .row.off > :not(.rest){opacity:.4}
   .row.off .plus,.row.off .minus{pointer-events:none;filter:grayscale(1)}
   .row.off .name small{color:var(--gold)}
   .grid3{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
@@ -183,6 +186,7 @@ let pdv = store.get('prot_pdv') || '';
 let staff = [];   // nomi addetti del PDV
 let events = [];  // protocolli del mese: [{n:nome, d:'AAAA-MM-GG', t:timestamp}]
 let riposo = [];  // addetti a riposo oggi
+let ferie  = [];  // addetti in ferie (resta finché non si toglie)
 
 const custKey   = () => 'prot_custom_' + pdv;   // modifiche del direttore: {removed:[], added:[]}
 let cust = {removed:[], added:[]};
@@ -193,9 +197,10 @@ function buildStaff(){
 }
 const monthSKey = () => 'prot_month_' + pdv;
 const restKey   = () => 'prot_riposo_' + pdv;
+const ferieKey  = () => 'prot_ferie_' + pdv;
 
 function loadPdv(){
-  if(!pdv){ staff=[]; events=[]; riposo=[]; render(); return; }
+  if(!pdv){ staff=[]; events=[]; riposo=[]; ferie=[]; render(); return; }
   cust = store.get(custKey());
   if(!cust){
     cust = {removed:[], added:[]};
@@ -221,11 +226,13 @@ function loadPdv(){
   }
   const r = store.get(restKey());
   riposo = (r && r.date === todayKey) ? (r.list || []) : [];
+  ferie = store.get(ferieKey()) || [];
   render();
 }
 function saveMonth(){ if(pdv) store.set(monthSKey(), {month:monthKey, events}); }
 function saveStaff(){ if(pdv) store.set(custKey(), cust); }
-function saveRest(){ if(pdv) store.set(restKey(), {date:todayKey, list:riposo}); }
+function saveRest(){ if(pdv){ store.set(restKey(), {date:todayKey, list:riposo}); store.set(ferieKey(), ferie); } }
+const isOff = n => riposo.includes(n) || ferie.includes(n);
 
 const todayEvents = () => events.filter(e => e.d === todayKey);
 function countsOf(list){
@@ -254,11 +261,14 @@ function render(){
     list.innerHTML = '<div class="card empty">Nessun addetto. Aggiungili da “Gestisci addetti”.</div>';
   } else {
     list.innerHTML = staff.map((n,i) => {
-      const off = riposo.includes(n);
+      const isR = riposo.includes(n), isF = ferie.includes(n), off = isR || isF;
       const lt = lastTime(n);
-      const sub = off ? 'DI RIPOSO' : (lt ? 'ultimo alle ' + lt : 'nessun protocollo oggi');
+      const sub = isF ? 'IN FERIE' : isR ? 'DI RIPOSO' : (lt ? 'ultimo alle ' + lt : 'nessun protocollo oggi');
       return `<div class="row ${off?'off':''} ${!off && cD[n] && cD[n]===max ? 'top':''}" id="r${i}">
-        <label class="rest"><input type="checkbox" data-r="${i}" ${off?'checked':''} aria-label="${esc(n)} di riposo">Riposo</label>
+        <div class="rest">
+          <button class="st ${isR?'on':''}" data-r="${i}" aria-pressed="${isR}" aria-label="${esc(n)} di riposo oggi">RIPOSO</button>
+          <button class="st ${isF?'on':''}" data-f="${i}" aria-pressed="${isF}" aria-label="${esc(n)} in ferie">FERIE</button>
+        </div>
         <div class="name">${esc(n)}<button class="x" data-x="${i}" aria-label="Togli ${esc(n)} dalla lista">✕</button><small>${sub}</small></div>
         <button class="minus" aria-label="Togli uno a ${esc(n)}" data-m="${i}">−</button>
         <div class="count">${cD[n] || 0}<small>mese ${cM[n] || 0}</small></div>
@@ -283,7 +293,7 @@ document.getElementById('list').addEventListener('click', e => {
   if(x){ removeStaff(+x.dataset.x); return; }
   if(p){
     const i = +p.dataset.p, n = staff[i];
-    if(riposo.includes(n)) return;
+    if(isOff(n)) return;
     events.push({n, d:todayKey, t:Date.now()}); saveMonth(); render();
     const row = document.getElementById('r'+i); if(row) row.classList.add('flash');
     if(navigator.vibrate) navigator.vibrate(30);
@@ -296,11 +306,20 @@ document.getElementById('list').addEventListener('click', e => {
     toast('Nessun protocollo di oggi da togliere');
   }
 });
-document.getElementById('list').addEventListener('change', e => {
-  const r = e.target.closest('[data-r]'); if(!r) return;
-  const n = staff[+r.dataset.r];
-  riposo = r.checked ? [...new Set([...riposo, n])] : riposo.filter(x => x !== n);
-  saveRest(); render(); toast(r.checked ? n + ' di riposo' : n + ' in servizio');
+document.getElementById('list').addEventListener('click', e => {
+  const r = e.target.closest('[data-r]'), f = e.target.closest('[data-f]');
+  if(r){
+    const n = staff[+r.dataset.r], on = !riposo.includes(n);
+    riposo = on ? [...riposo, n] : riposo.filter(x => x !== n);
+    if(on) ferie = ferie.filter(x => x !== n);
+    saveRest(); render(); toast(on ? n + ' di riposo oggi' : n + ' in servizio');
+  }
+  if(f){
+    const n = staff[+f.dataset.f], on = !ferie.includes(n);
+    ferie = on ? [...ferie, n] : ferie.filter(x => x !== n);
+    if(on) riposo = riposo.filter(x => x !== n);
+    saveRest(); render(); toast(on ? n + ' in ferie (fino a quando lo togli)' : n + ' rientrato dalle ferie');
+  }
 });
 
 document.getElementById('undoBtn').onclick = () => {
@@ -331,7 +350,7 @@ function removeStaff(i){
   if(!confirm('Togliere ' + n + ' dalla lista? (es. cassiera o magazzino)\nSi può riaggiungere da "Gestisci addetti".')) return;
   cust.added = cust.added.filter(a => a !== n);
   if((ADDETTI[pdv] || []).includes(n) && !cust.removed.includes(n)) cust.removed.push(n);
-  buildStaff(); riposo = riposo.filter(r => r !== n);
+  buildStaff(); riposo = riposo.filter(r => r !== n); ferie = ferie.filter(r => r !== n);
   saveStaff(); saveRest(); render(); toast(n + ' tolto dalla lista');
 }
 document.getElementById('restoreBtn').onclick = () => {
@@ -354,8 +373,9 @@ function buildReport(){
   const cD = countsOf(tEv), cM = countsOf(events);
   const dataIT = now.toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
   const ora = now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
-  const att = staff.filter(n => !riposo.includes(n)).sort((a,b) => (cD[b]-cD[a]) || (cM[b]-cM[a]) || a.localeCompare(b));
-  const off = staff.filter(n => riposo.includes(n));
+  const att = staff.filter(n => !isOff(n)).sort((a,b) => (cD[b]-cD[a]) || (cM[b]-cM[a]) || a.localeCompare(b));
+  const off = staff.filter(n => riposo.includes(n) && !ferie.includes(n));
+  const fer = staff.filter(n => ferie.includes(n));
   const top = Math.max(1, ...att.map(n => cD[n] || 0));
   const SEP = '━━━━━━━━━━━━━━━━';
   const medal = ['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
@@ -377,6 +397,11 @@ function buildReport(){
   if(off.length){
     t += `\n\n${SEP}\n😴 DI RIPOSO\n`;
     off.forEach(n => { t += `• ${n}   (mese ${cM[n] || 0})\n`; });
+    t = t.trimEnd();
+  }
+  if(fer.length){
+    t += `\n\n${SEP}\n🏖️ IN FERIE\n`;
+    fer.forEach(n => { t += `• ${n}   (mese ${cM[n] || 0})\n`; });
     t = t.trimEnd();
   }
   t += `\n\n${SEP}\n📊 Totale ${monthIT}: ${events.length} protocolli`;
