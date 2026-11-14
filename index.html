@@ -422,10 +422,28 @@ document.getElementById('sendBtn').onclick = () => {
   const r = buildReport();
   window.location.href = `mailto:${EMAIL_TO}?subject=${encodeURIComponent(r.subject)}&body=${encodeURIComponent(r.t)}`;
 };
-document.getElementById('tgBtn').onclick = () => {
+document.getElementById('tgBtn').onclick = async () => {
   if(!pdv){ alert('Seleziona il PUNTO VENDITA prima di inviare.'); return; }
   const r = buildReport();
-  window.location.href = `https://t.me/share/url?url=${encodeURIComponent(r.subject)}&text=${encodeURIComponent('\n' + r.t)}`;
+  const txt = r.t;
+  // copia sempre negli appunti (paracadute: basta incollare in Telegram)
+  try{ await navigator.clipboard.writeText(txt); }catch(e){}
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  if(isIOS){
+    // iPhone: apre direttamente l'app Telegram con il messaggio pronto
+    window.location.href = 'tg://msg?text=' + encodeURIComponent(txt);
+    // se Telegram non si apre, dopo 1,5 s propone la condivisione di iOS
+    setTimeout(async () => {
+      if(document.visibilityState === 'visible'){
+        if(navigator.share){
+          try{ await navigator.share({text: txt}); return; }catch(e){ if(e.name==='AbortError') return; }
+        }
+        toast('Report copiato: apri Telegram e incolla');
+      }
+    }, 1500);
+  } else {
+    window.location.href = `https://t.me/share/url?url=${encodeURIComponent(' ')}&text=${encodeURIComponent(txt)}`;
+  }
 };
 
 /* ---------- toast ---------- */
