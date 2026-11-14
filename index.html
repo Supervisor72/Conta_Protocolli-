@@ -140,7 +140,10 @@
     </details>
   </div>
 
-  <button class="btn btn-red" id="resetBtn">🗑️ Azzera conteggi di oggi</button>
+  <div class="grid2">
+    <button class="btn btn-red" id="resetBtn">🗑️ Azzera oggi</button>
+    <button class="btn btn-red" id="resetMonthBtn">🗑️ Azzera mese</button>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -363,6 +366,13 @@ document.getElementById('resetBtn').onclick = () => {
   if(!pdv) return;
   if(!confirm('Azzerare i protocolli di OGGI per ' + pdv + '? (il totale del mese perde quelli di oggi)')) return;
   events = events.filter(e => e.d !== todayKey); saveMonth(); render(); toast('Conteggi di oggi azzerati');
+};
+
+document.getElementById('resetMonthBtn').onclick = () => {
+  if(!pdv) return;
+  if(!confirm('Azzerare TUTTI i protocolli di ' + monthIT.toUpperCase() + ' per ' + pdv + '?\n(oggi compreso)')) return;
+  if(!confirm('Sicuro? L\'operazione non si può annullare.\nConsiglio: invia prima il report.')) return;
+  events = []; saveMonth(); render(); toast('Totali del mese azzerati');
 };
 
 $pdv.onchange = () => { pdv = $pdv.value; store.set('prot_pdv', pdv); loadPdv(); };
