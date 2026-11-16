@@ -59,6 +59,7 @@
   .row.off .name small{color:var(--gold)}
   .grid3{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
   .btn-tg{background:#229ED9;color:#fff}
+  .btn-glass{background:linear-gradient(135deg,#dfe9ff,#f6e7ff 50%,#ffe9d6);color:#1d1d1f}
   .minus{width:40px;height:52px;border-radius:10px;border:1px solid var(--inline);background:transparent;color:var(--muted);
          font-size:22px;font-weight:800;cursor:pointer}
   .plus{width:76px;height:60px;border-radius:12px;border:none;background:var(--grad);color:#14110a;
@@ -127,6 +128,7 @@
     <button class="btn btn-gold" id="sendBtn">📧 Invia mail</button>
     <button class="btn btn-tg" id="tgBtn">✈️ Telegram</button>
   </div>
+  <button class="btn btn-glass" id="imgBtn" style="margin-top:10px">🖼️ Invia immagine report</button>
 
   <div class="card" style="margin-top:14px">
     <details class="manage" id="manage">
@@ -381,46 +383,78 @@ $pdv.onchange = () => { pdv = $pdv.value; store.set('prot_pdv', pdv); loadPdv();
 function buildReport(){
   const tEv = todayEvents();
   const cD = countsOf(tEv), cM = countsOf(events);
-  const dataIT = now.toLocaleDateString('it-IT',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
+  const giorno = now.toLocaleDateString('it-IT',{weekday:'long'});
+  const dataIT = now.toLocaleDateString('it-IT');
   const ora = now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
-  const att = staff.filter(n => !isOff(n)).sort((a,b) => (cD[b]-cD[a]) || (cM[b]-cM[a]) || a.localeCompare(b));
-  const off = staff.filter(n => riposo.includes(n) && !ferie.includes(n));
-  const fer = staff.filter(n => ferie.includes(n));
-  const top = Math.max(1, ...att.map(n => cD[n] || 0));
-  const SEP = '━━━━━━━━━━━━━━━━';
-  const medal = ['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
-  const bar = v => { const k = Math.round((v / top) * 10); return '▰'.repeat(k) + '▱'.repeat(10 - k); };
+  const MESE = monthIT.toUpperCase();
+  const LINE = '━━━━━━━━━━━━━━━━━━';
 
-  // posizioni a pari merito (stesso numero oggi = stessa posizione)
+  const inServ = staff.filter(n => !isOff(n));
+  const rip    = staff.filter(n => riposo.includes(n) && !ferie.includes(n));
+  const fer    = staff.filter(n => ferie.includes(n));
+  const media  = inServ.length ? tEv.length / inServ.length : 0;
+  const fmt1   = v => v.toLocaleString('it-IT',{maximumFractionDigits:1});
+
+  // classifica di oggi: chi ha almeno 1 protocollo, dal più alto
+  const attivi = inServ.filter(n => cD[n] > 0)
+    .sort((a,b) => (cD[b]-cD[a]) || (cM[b]-cM[a]) || a.localeCompare(b));
+  const zero   = inServ.filter(n => !cD[n]).sort((a,b) => a.localeCompare(b));
+
+  const medal = ['🥇','🥈','🥉'];
   let pos = 0, prev = null;
-  const rows = att.map((n,i) => {
-    const v = cD[n] || 0;
+  const rowsOggi = attivi.map((n,i) => {
+    const v = cD[n];
     if(v !== prev){ pos = i; prev = v; }
-    const icon = v === 0 ? '▫️' : (medal[pos] || `${pos+1}.`);
-    return `${icon} ${n}  ➜  ${v}\n      ${bar(v)}   mese ${cM[n] || 0}`;
+    const icon = medal[pos] || `${pos+1}°`;
+    const dot  = v >= media ? '🟢' : '🔴';
+    return `${icon} ${n}\n      ${dot} ${v} oggi  ·  ${cM[n]} mese`;
   });
 
-  let t = `📋 PROTOCOLLI PDV\n🏬 ${pdv}\n📅 ${dataIT} · ore ${ora}\n${SEP}\n`;
-  t += `🔥 OGGI: ${tEv.length} PROTOCOLLI\n${SEP}\n\n`;
-  t += `🏆 CLASSIFICA DI OGGI\n\n`;
-  t += rows.length ? rows.join('\n\n') : 'Nessun addetto in servizio';
-  if(off.length){
-    t += `\n\n${SEP}\n😴 DI RIPOSO\n`;
-    off.forEach(n => { t += `• ${n}   (mese ${cM[n] || 0})\n`; });
+  // classifica del mese (tutti, anche riposo/ferie)
+  const meseSort = staff.filter(n => cM[n] > 0)
+    .sort((a,b) => (cM[b]-cM[a]) || a.localeCompare(b));
+  let pM = 0, prM = null;
+  const rowsMese = meseSort.slice(0,5).map((n,i) => {
+    if(cM[n] !== prM){ pM = i; prM = cM[n]; }
+    return `${medal[pM] || (pM+1)+'°'} ${n}  ➜  ${cM[n]}`;
+  });
+
+  let t = '';
+  t += `📋 **PROTOCOLLI PDV ${pdv}**\n`;
+  t += `📅 ${giorno.charAt(0).toUpperCase()+giorno.slice(1)} ${dataIT}  ·  ore ${ora}\n`;
+  t += `${LINE}\n`;
+  t += `🔥 OGGI:  ${tEv.length} protocolli\n`;
+  t += `📊 ${MESE}:  ${events.length} protocolli\n`;
+  t += `⚖️ Media addetto oggi:  ${fmt1(media)}\n`;
+  t += `👥 In servizio ${inServ.length}`;
+  if(rip.length) t += `  ·  😴 Riposo ${rip.length}`;
+  if(fer.length) t += `  ·  🏖️ Ferie ${fer.length}`;
+  t += `\n${LINE}\n\n`;
+
+  t += `🏆 **CLASSIFICA DI OGGI**\n\n`;
+  t += rowsOggi.length ? rowsOggi.join('\n\n') : 'Nessun protocollo registrato oggi';
+  if(zero.length){
+    t += `\n\n⚪ **Zero protocolli oggi**\n` + zero.map(n => `• ${n}  (mese ${cM[n]||0})`).join('\n');
+  }
+
+  if(rowsMese.length){
+    t += `\n\n${LINE}\n📈 **TOP 5 ${MESE}**\n\n` + rowsMese.join('\n');
+  }
+
+  if(rip.length || fer.length){
+    t += `\n\n${LINE}\n`;
+    if(rip.length) t += `😴 **Di riposo:** ${rip.join(', ')}\n`;
+    if(fer.length) t += `🏖️ **In ferie:** ${fer.join(', ')}\n`;
     t = t.trimEnd();
   }
-  if(fer.length){
-    t += `\n\n${SEP}\n🏖️ IN FERIE\n`;
-    fer.forEach(n => { t += `• ${n}   (mese ${cM[n] || 0})\n`; });
-    t = t.trimEnd();
-  }
-  t += `\n\n${SEP}\n📊 Totale ${monthIT}: ${events.length} protocolli`;
-  return {t, subject:`📋 Protocolli ${pdv} – ${now.toLocaleDateString('it-IT')} – oggi ${tEv.length}`};
+
+  t += `\n\n🟢 sopra media  ·  🔴 sotto media`;
+  return {t, subject:`📋 Protocolli ${pdv} – ${dataIT} – oggi ${tEv.length} / ${monthIT} ${events.length}`};
 }
 document.getElementById('sendBtn').onclick = () => {
   if(!pdv){ alert('Seleziona il PUNTO VENDITA prima di inviare.'); return; }
   const r = buildReport();
-  window.location.href = `mailto:${EMAIL_TO}?subject=${encodeURIComponent(r.subject)}&body=${encodeURIComponent(r.t)}`;
+  window.location.href = `mailto:${EMAIL_TO}?subject=${encodeURIComponent(r.subject)}&body=${encodeURIComponent(r.t.replace(/\*/g,''))}`;
 };
 document.getElementById('tgBtn').onclick = async () => {
   if(!pdv){ alert('Seleziona il PUNTO VENDITA prima di inviare.'); return; }
@@ -444,6 +478,160 @@ document.getElementById('tgBtn').onclick = async () => {
   } else {
     window.location.href = `https://t.me/share/url?url=${encodeURIComponent(' ')}&text=${encodeURIComponent(txt)}`;
   }
+};
+
+/* ---------- immagine report: stile Liquid Glass Apple ---------- */
+function reportData(){
+  const tEv = todayEvents(), cD = countsOf(tEv), cM = countsOf(events);
+  const inServ = staff.filter(n => !isOff(n));
+  const rip = staff.filter(n => riposo.includes(n) && !ferie.includes(n));
+  const fer = staff.filter(n => ferie.includes(n));
+  const media = inServ.length ? tEv.length / inServ.length : 0;
+  const att = inServ.filter(n => cD[n] > 0).sort((a,b) => (cD[b]-cD[a]) || (cM[b]-cM[a]) || a.localeCompare(b));
+  const zero = inServ.filter(n => !cD[n]).sort((a,b) => a.localeCompare(b));
+  const top = staff.filter(n => cM[n] > 0).sort((a,b) => (cM[b]-cM[a]) || a.localeCompare(b)).slice(0,5);
+  const rank = (list, val) => { let p=0, pv=null; return list.map((n,i) => { if(val(n)!==pv){p=i;pv=val(n);} return p; }); };
+  return {tEv, cD, cM, inServ, rip, fer, media, att, zero, top,
+          rA: rank(att, n => cD[n]), rT: rank(top, n => cM[n])};
+}
+function rr(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function glass(ctx,x,y,w,h,r){
+  ctx.save();
+  ctx.shadowColor='rgba(40,40,90,.16)'; ctx.shadowBlur=40; ctx.shadowOffsetY=14;
+  rr(ctx,x,y,w,h,r); ctx.fillStyle='rgba(255,255,255,.55)'; ctx.fill();
+  ctx.restore();
+  const g=ctx.createLinearGradient(0,y,0,y+h); g.addColorStop(0,'rgba(255,255,255,.55)'); g.addColorStop(.5,'rgba(255,255,255,.08)'); g.addColorStop(1,'rgba(255,255,255,.25)');
+  rr(ctx,x,y,w,h,r); ctx.fillStyle=g; ctx.fill();
+  rr(ctx,x+1,y+1,w-2,h-2,r-1); ctx.lineWidth=2; ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.stroke();
+}
+function fitText(ctx,txt,maxW){ if(ctx.measureText(txt).width<=maxW) return txt; while(txt.length>1 && ctx.measureText(txt+'…').width>maxW) txt=txt.slice(0,-1); return txt+'…'; }
+
+function drawReportImage(){
+  const d = reportData();
+  const W=1080, P=56, F='-apple-system, "SF Pro Display", "Helvetica Neue", "DM Sans", sans-serif';
+  const rowH=118, gap=18;
+  let H = 330 + 250 + 70;                                  // header + stat + titolo classifica
+  H += Math.max(1,d.att.length)*(rowH+gap);
+  if(d.zero.length) H += 70 + Math.ceil(d.zero.length/2)*54 + 40;
+  if(d.top.length)  H += 90 + d.top.length*64 + 40;
+  if(d.rip.length || d.fer.length) H += 60 + (d.rip.length?1:0)*58 + (d.fer.length?1:0)*58 + 30;
+  H += 110;
+
+  const c=document.createElement('canvas'); c.width=W; c.height=H;
+  const x=c.getContext('2d');
+
+  // sfondo: wallpaper chiaro con macchie di colore sfocate (stile iOS)
+  x.fillStyle='#eef1f8'; x.fillRect(0,0,W,H);
+  [[160,180,520,'rgba(120,170,255,.55)'],[960,420,560,'rgba(255,170,120,.50)'],[200,H*.55,600,'rgba(200,150,255,.45)'],
+   [900,H*.8,620,'rgba(255,210,110,.45)'],[540,H-60,520,'rgba(120,220,210,.40)']].forEach(([cx,cy,r,col])=>{
+    const g=x.createRadialGradient(cx,cy,0,cx,cy,r); g.addColorStop(0,col); g.addColorStop(1,'rgba(255,255,255,0)');
+    x.fillStyle=g; x.fillRect(0,0,W,H);
+  });
+
+  const ink='#1d1d1f', sub='#6e6e73', gold='#c9971f', green='#34c759', red='#ff3b30';
+  let y=P;
+
+  // header
+  glass(x,P,y,W-2*P,250,48);
+  x.fillStyle=gold; x.font=`700 30px ${F}`; x.fillText('DML · TRONY', P+44, y+70);
+  x.fillStyle=ink;  x.font=`800 76px ${F}`; x.fillText('Protocolli ' + pdv.charAt(0)+pdv.slice(1).toLowerCase(), P+44, y+158);
+  const giorno = now.toLocaleDateString('it-IT',{weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  x.fillStyle=sub;  x.font=`500 32px ${F}`;
+  x.fillText(giorno.charAt(0).toUpperCase()+giorno.slice(1) + '  ·  ore ' + now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}), P+44, y+212);
+  y += 250 + 30;
+
+  // 3 stat card
+  const sw=(W-2*P-2*24)/3;
+  [['Oggi', String(d.tEv.length), ink], [monthIT.charAt(0).toUpperCase()+monthIT.slice(1), String(events.length), ink],
+   ['Media addetto', d.media.toLocaleString('it-IT',{maximumFractionDigits:1}), gold]].forEach(([l,v,col],i)=>{
+    const sx=P+i*(sw+24); glass(x,sx,y,sw,220,40);
+    x.fillStyle=sub; x.font=`600 28px ${F}`; x.fillText(l, sx+30, y+56);
+    x.fillStyle=col; x.font=`800 104px ${F}`; x.fillText(v, sx+28, y+176);
+  });
+  y += 220 + 34;
+  let info = `👥 ${d.inServ.length} in servizio`; if(d.rip.length) info += `   😴 ${d.rip.length} riposo`; if(d.fer.length) info += `   🏖️ ${d.fer.length} ferie`;
+  x.fillStyle=sub; x.font=`500 30px ${F}`; x.fillText(info, P+8, y); y += 36;
+
+  // classifica di oggi
+  x.fillStyle=ink; x.font=`800 44px ${F}`; x.fillText('🏆  Classifica di oggi', P+8, y+44); y += 76;
+  const medal=['🥇','🥈','🥉'], maxV=Math.max(1,...d.att.map(n=>d.cD[n]));
+  if(!d.att.length){ glass(x,P,y,W-2*P,rowH,34); x.fillStyle=sub; x.font=`500 34px ${F}`; x.fillText('Nessun protocollo registrato oggi', P+40, y+70); y += rowH+gap; }
+  d.att.forEach((n,i)=>{
+    const v=d.cD[n], p=d.rA[i], w=W-2*P;
+    glass(x,P,y,w,rowH,34);
+    x.font=`700 52px ${F}`; x.fillStyle=ink; x.textAlign='center';
+    x.fillText(medal[p] || (p+1)+'°', P+62, y+76); x.textAlign='left';
+    x.fillStyle=ink; x.font=`700 36px ${F}`; x.fillText(fitText(x,n,w-380), P+120, y+52);
+    // barra
+    const bx=P+120, bw=w-380, by=y+76; rr(x,bx,by,bw,14,7); x.fillStyle='rgba(0,0,0,.07)'; x.fill();
+    rr(x,bx,by,Math.max(14,bw*v/maxV),14,7); x.fillStyle = v>=d.media ? green : red; x.fill();
+    x.textAlign='right';
+    x.fillStyle=ink; x.font=`800 64px ${F}`; x.fillText(String(v), P+w-40, y+74);
+    x.fillStyle=sub; x.font=`500 24px ${F}`; x.fillText('mese ' + d.cM[n], P+w-40, y+104);
+    x.textAlign='left';
+    y += rowH+gap;
+  });
+
+  // zero oggi
+  if(d.zero.length){
+    y += 14; x.fillStyle=sub; x.font=`700 32px ${F}`; x.fillText('⚪  Zero protocolli oggi', P+8, y+34); y += 56;
+    const cw=(W-2*P-20)/2;
+    d.zero.forEach((n,i)=>{
+      const cx=P+(i%2)*(cw+20), cy=y+Math.floor(i/2)*54;
+      rr(x,cx,cy,cw,44,22); x.fillStyle='rgba(255,255,255,.6)'; x.fill();
+      x.fillStyle=ink; x.font=`600 24px ${F}`; x.fillText(fitText(x,n,cw-150), cx+20, cy+30);
+      x.fillStyle=sub; x.textAlign='right'; x.fillText('mese ' + d.cM[n], cx+cw-20, cy+30); x.textAlign='left';
+    });
+    y += Math.ceil(d.zero.length/2)*54 + 40;
+  }
+
+  // top 5 mese
+  if(d.top.length){
+    const h = 90 + d.top.length*64;
+    glass(x,P,y,W-2*P,h,40);
+    x.fillStyle=ink; x.font=`800 38px ${F}`; x.fillText('📈  Top 5 ' + monthIT, P+40, y+62);
+    d.top.forEach((n,i)=>{
+      const ly=y+120+i*64, p=d.rT[i];
+      x.font=`700 34px ${F}`; x.fillStyle=ink; x.fillText(medal[p] || (p+1)+'°', P+40, ly);
+      x.font=`600 32px ${F}`; x.fillText(fitText(x,n,W-2*P-300), P+110, ly);
+      x.textAlign='right'; x.fillStyle=gold; x.font=`800 38px ${F}`; x.fillText(String(d.cM[n]), W-P-40, ly); x.textAlign='left';
+    });
+    y += h + 40;
+  }
+
+  // riposo / ferie
+  if(d.rip.length || d.fer.length){
+    [['😴  Riposo', d.rip], ['🏖️  Ferie', d.fer]].forEach(([l,list])=>{
+      if(!list.length) return;
+      x.fillStyle=sub; x.font=`700 28px ${F}`; x.fillText(l, P+8, y+30);
+      x.fillStyle=ink; x.font=`500 26px ${F}`; x.fillText(fitText(x,list.join(', '),W-2*P-230), P+210, y+30);
+      y += 58;
+    });
+    y += 30;
+  }
+
+  // legenda
+  x.font=`500 26px ${F}`; x.fillStyle=green; x.fillText('●', P+8, y+30); x.fillStyle=sub; x.fillText('sopra media', P+40, y+30);
+  x.fillStyle=red; x.fillText('●', P+240, y+30); x.fillStyle=sub; x.fillText('sotto media', P+272, y+30);
+  x.textAlign='right'; x.fillText('Report Protocolli PDV', W-P-8, y+30); x.textAlign='left';
+  return c;
+}
+
+document.getElementById('imgBtn').onclick = async () => {
+  if(!pdv){ alert('Seleziona il PUNTO VENDITA prima di inviare.'); return; }
+  const c = drawReportImage();
+  const blob = await new Promise(res => c.toBlob(res, 'image/png'));
+  const name = `Protocolli_${pdv}_${todayKey}.png`;
+  const file = new File([blob], name, {type:'image/png'});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title:'Protocolli ' + pdv}); return; }
+    catch(e){ if(e.name === 'AbortError') return; }
+  }
+  // computer / browser senza condivisione: scarica l'immagine
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast('Immagine scaricata: allegala su Telegram');
 };
 
 /* ---------- toast ---------- */
